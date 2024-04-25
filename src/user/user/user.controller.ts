@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { UserCreateRequestDto } from '../dto/user-create-request.dto/user-create-request.dto';
 import { UserService } from './user.service';
 import { UserEntity } from '../entity/user.entity/user.entity';
 import { UserUpdateRequestDto } from '../dto/user-update-request.dto/user-update-request.dto';
+import { AuthGuard } from '../auth/auth-guard/auth-guard';
 
 @Controller('user')
 export class UserController {
@@ -17,6 +18,7 @@ export class UserController {
         });
     }
 
+    @UseGuards(AuthGuard)
     @Get()
     public getUser(@Body('uuid') uuid: string): Promise<UserEntity> {
         return this.userServices.findOne(uuid);
@@ -42,6 +44,12 @@ export class UserController {
             resolve();
         });
     }
+
+    @Post('/login')
+    public login(@Body('email') email: string, @Body('password') password: string): Promise<{accessToken: string}> {
+        return this.userServices.sigIn(email, password);
+    }
+
 
 
 }

@@ -1,14 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entity/user.entity/user.entity';
 import { Repository } from 'typeorm';
 import { UserCreateRequestDto } from '../dto/user-create-request.dto/user-create-request.dto';
 import { UserUpdateRequestDto } from '../dto/user-update-request.dto/user-update-request.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {
 
-    constructor(@InjectRepository(UserEntity) private userRepository: Repository<UserEntity>) {};
+    constructor(
+        @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>, 
+        private jwtService: JwtService) {};
 
     async createUser(user: UserCreateRequestDto): Promise<void>{
         let newUser = new UserEntity();
@@ -37,6 +40,18 @@ export class UserService {
     async delete(uuid: string): Promise<void>{
         const user = await this.userRepository.findOne({where: {uuid: uuid}});
         await this.userRepository.remove(user);
+    }
+
+    async sigIn(email: string, password: string): Promise<{accessToken: string}>{
+        const user = await this.userRepository.findOne({where: {email: email}});
+        if(user.password !== password){
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        const payload = { sub: user.uuid, email: user.email };
+        return {
+            accessToken: await this.jwtService.signAsync(payload)
+        };
     }
 
 
