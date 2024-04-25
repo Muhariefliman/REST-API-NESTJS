@@ -1,17 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entity/user.entity/user.entity';
 import { Repository } from 'typeorm';
 import { UserCreateRequestDto } from '../dto/user-create-request.dto/user-create-request.dto';
 import { UserUpdateRequestDto } from '../dto/user-update-request.dto/user-update-request.dto';
 import { JwtService } from '@nestjs/jwt';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class UserService {
 
     constructor(
         @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>, 
-        private jwtService: JwtService) {};
+        private jwtService: JwtService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache
+    ) {};
 
     async createUser(user: UserCreateRequestDto): Promise<void>{
         let newUser = new UserEntity();
@@ -26,7 +30,16 @@ export class UserService {
     }
 
     async findOne(uuid: string): Promise<UserEntity>{
-        return await this.userRepository.findOne({where: {uuid: uuid}});
+        const cachedName = await this.cacheManager.get<UserEntity>(uuid);
+
+        if(cachedName){
+            console.log("cached")
+            return cachedName;
+        }
+
+        const user = await this.userRepository.findOne({where: {uuid: uuid}});
+        await this.cacheManager.set(user.uuid, user);
+        return user;
     }
 
     async update(user: UserUpdateRequestDto): Promise<void>{
@@ -53,6 +66,5 @@ export class UserService {
             accessToken: await this.jwtService.signAsync(payload)
         };
     }
-
 
 }
